@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { X, ChevronDown } from 'lucide-react'
+import { getProvinces, getDistrictsByProvinceId, getVillagesByDistrictId } from '@anouluk/laos-address-typescript'
 import { formatPrice, buildWhatsAppMessage } from '@/lib/utils'
 import { customerApi } from '@/lib/api'
 
-const EMPTY_FORM = { name: '', phone: '', address: '', city: '', province: '', landmark: '', preferredDate: '', notes: '' }
+const EMPTY_FORM = { name: '', phone: '', village: '', city: '', province: '', landmark: '', preferredDate: '', notes: '', logistics: '' }
+const LOGISTICS_OPTIONS = ['ອານຸສິດ', 'ຮຸ່ງອາລຸນ']
+
+const ALL_PROVINCES = getProvinces()
 
 const Field = ({ label, name, required, type = 'text', placeholder, half, value, error, onChange }) => (
   <div className={half ? 'flex-[1_1_45%] min-w-[140px]' : 'w-full'}>
@@ -31,18 +35,80 @@ const Field = ({ label, name, required, type = 'text', placeholder, half, value,
   </div>
 )
 
+const SearchableSelect = ({ label, required, value, error, options, placeholder, onChange, disabled }) => {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef(null)
+
+  const selected = options.find(o => o.value === value)
+  const filtered = query ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase())) : options
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const pick = (opt) => { onChange(opt.value); setQuery(''); setOpen(false) }
+
+  return (
+    <div className="w-full" ref={ref}>
+      <label className={`label-field ${error ? '!text-red-500' : ''}`}>
+        {label}{required && ' *'}
+      </label>
+      <div className={`relative ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className={`input-field flex w-full items-center justify-between text-left ${error ? '!border-red-400' : ''} ${!selected ? 'text-gray-400' : 'text-gray-900'}`}
+        >
+          <span className="truncate">{selected ? selected.label : placeholder}</span>
+          <ChevronDown size={15} className={`ml-2 flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+
+        {open && (
+          <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg">
+            <div className="p-2">
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="ຄົ້ນຫາ..."
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand-800"
+              />
+            </div>
+            <ul className="max-h-48 overflow-y-auto pb-2">
+              {filtered.length === 0 ? (
+                <li className="px-4 py-2 text-sm text-gray-400">ບໍ່ພົບຂໍ້ມູນ</li>
+              ) : filtered.map(opt => (
+                <li
+                  key={opt.value}
+                  onClick={() => pick(opt)}
+                  className={`cursor-pointer px-4 py-2 text-sm hover:bg-brand-50 ${opt.value === value ? 'font-semibold text-brand-800' : 'text-gray-700'}`}
+                >
+                  {opt.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+      {error && <p className="mt-1 text-[11px] text-red-500">{error}</p>}
+    </div>
+  )
+}
+
 export default function CheckoutModal({ cart, onClose, onSuccess, config }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [errors, setErrors] = useState({})
   const [sending, setSending] = useState(false)
   const [savedCustomer, setSavedCustomer] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [provinceId, setProvinceId] = useState('')
+  const [districtId, setDistrictId] = useState('')
 
-  // Try loading saved customer from API
-  useEffect(() => {
-    // We'll skip auto-load since we don't have the phone yet.
-    // Customer data loads when they type their phone number.
-  }, [])
+  const districts = provinceId ? getDistrictsByProvinceId(provinceId) : []
+  const villages = districtId ? getVillagesByDistrictId(districtId) : []
 
   const lookupCustomer = async (phone) => {
     if (phone.length < 7) return
@@ -50,13 +116,31 @@ export default function CheckoutModal({ cart, onClose, onSuccess, config }) {
       const data = await customerApi.getByPhone(phone)
       if (data && data.name) {
         setSavedCustomer(data)
-        setForm(prev => ({ ...prev, name: data.name, address: data.address || '', city: data.city || '', province: data.province || '', landmark: data.landmark || '' }))
+        setForm(prev => ({
+          ...prev,
+          name: data.name,
+          village: data.village || '',
+          city: data.city || '',
+          province: data.province || '',
+          landmark: data.landmark || '',
+          logistics: data.logistics || '',
+        }))
+        // Restore cascading IDs from saved names
+        const prov = ALL_PROVINCES.find(p => p.pn === data.province)
+        if (prov) {
+          setProvinceId(prov.pid)
+          const dists = getDistrictsByProvinceId(prov.pid)
+          const dist = dists.find(d => d.dn === data.city)
+          if (dist) setDistrictId(dist.did)
+        }
       }
     } catch (e) { /* not found */ }
   }
 
   const clearSaved = () => {
     setSavedCustomer(null)
+    setProvinceId('')
+    setDistrictId('')
     setForm(EMPTY_FORM)
   }
 
@@ -68,14 +152,36 @@ export default function CheckoutModal({ cart, onClose, onSuccess, config }) {
     }
   }
 
+  const handleProvinceChange = (pid) => {
+    const prov = ALL_PROVINCES.find(p => p.pid === pid)
+    setProvinceId(pid)
+    setDistrictId('')
+    setForm(p => ({ ...p, province: prov?.pn || '', city: '', village: '' }))
+    setErrors(p => ({ ...p, province: undefined, city: undefined, village: undefined }))
+  }
+
+  const handleDistrictChange = (did) => {
+    const dist = districts.find(d => d.did === did)
+    setDistrictId(did)
+    setForm(p => ({ ...p, city: dist?.dn || '', village: '' }))
+    setErrors(p => ({ ...p, city: undefined, village: undefined }))
+  }
+
+  const handleVillageChange = (vid) => {
+    const vil = villages.find(v => v.vid === vid)
+    setForm(p => ({ ...p, village: vil?.vn || '' }))
+    setErrors(p => ({ ...p, village: undefined }))
+  }
+
   const validate = () => {
     const e = {}
     if (!form.name.trim()) e.name = 'ຈຳເປັນ'
     if (!form.phone.trim()) e.phone = 'ຈຳເປັນ'
     else if (!/^[\d\s\-+()]{7,}$/.test(form.phone)) e.phone = 'ເບີບໍ່ຖືກຕ້ອງ'
-    if (!form.address.trim()) e.address = 'ຈຳເປັນ'
-    if (!form.city.trim()) e.city = 'ຈຳເປັນ'
-    if (!form.province.trim()) e.province = 'ຈຳເປັນ'
+    if (!form.province) e.province = 'ຈຳເປັນ'
+    if (!form.city) e.city = 'ຈຳເປັນ'
+    if (!form.village) e.village = 'ຈຳເປັນ'
+    if (!form.logistics) e.logistics = 'ຈຳເປັນ'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -83,16 +189,12 @@ export default function CheckoutModal({ cart, onClose, onSuccess, config }) {
   const submit = async () => {
     if (!validate()) return
     setSending(true)
-
-    // Save customer data
     try {
       await customerApi.save({
-        name: form.name, phone: form.phone, address: form.address,
-        city: form.city, province: form.province, landmark: form.landmark,
+        name: form.name, phone: form.phone, village: form.village,
+        city: form.city, province: form.province, landmark: form.landmark, logistics: form.logistics,
       })
     } catch (e) { /* ok */ }
-
-    // Open WhatsApp
     const msg = buildWhatsAppMessage(cart, form, config)
     window.open(`https://wa.me/${config.whatsappNumber}?text=${msg}`, '_blank')
     setTimeout(() => { setSending(false); onSuccess() }, 500)
@@ -157,12 +259,66 @@ export default function CheckoutModal({ cart, onClose, onSuccess, config }) {
           <div className="mt-7 flex flex-wrap gap-4">
             <Field label="ຊື່ ແລະ ນາມສະກຸນ" name="name" required placeholder="ຊື່ເຕັມຂອງທ່ານ" value={form.name} error={errors.name} onChange={setField} />
             <Field label="ເບີໂທລະສັບ" name="phone" required placeholder="020 1234 5678" type="tel" value={form.phone} error={errors.phone} onChange={setField} />
-            <Field label="ທີ່ຢູ່ຈັດສົ່ງ" name="address" required placeholder="ເລກທີ່ບ້ານ, ຖະໜົນ" value={form.address} error={errors.address} onChange={setField} />
-            <Field label="ເມືອງ / ນະຄອນ" name="city" required placeholder="ເມືອງ" half value={form.city} error={errors.city} onChange={setField} />
-            <Field label="ແຂວງ" name="province" required placeholder="ແຂວງ" half value={form.province} error={errors.province} onChange={setField} />
+
+            {/* Province */}
+            <SearchableSelect
+              label="ແຂວງ" required
+              value={provinceId}
+              error={errors.province}
+              placeholder="-- ເລືອກແຂວງ --"
+              options={ALL_PROVINCES.map(p => ({ value: p.pid, label: p.pn }))}
+              onChange={handleProvinceChange}
+            />
+
+            {/* District */}
+            <SearchableSelect
+              label="ເມືອງ" required
+              value={districtId}
+              error={errors.city}
+              placeholder={provinceId ? '-- ເລືອກເມືອງ --' : '-- ເລືອກແຂວງກ່ອນ --'}
+              options={districts.map(d => ({ value: d.did, label: d.dn }))}
+              onChange={handleDistrictChange}
+              disabled={!provinceId}
+            />
+
+            {/* Village */}
+            <SearchableSelect
+              label="ບ້ານ" required
+              value={villages.find(v => v.vn === form.village)?.vid || ''}
+              error={errors.village}
+              placeholder={districtId ? '-- ເລືອກບ້ານ --' : '-- ເລືອກເມືອງກ່ອນ --'}
+              options={villages.map(v => ({ value: v.vid, label: v.vn }))}
+              onChange={handleVillageChange}
+              disabled={!districtId}
+            />
+
             <Field label="ຈຸດສັງເກດ" name="landmark" placeholder="ໃກ້ວັດ, ຕະຫຼາດ..." half value={form.landmark} error={errors.landmark} onChange={setField} />
-            <Field label="ວັນທີ່ຕ້ອງການຮັບ" name="preferredDate" type="date" value={form.preferredDate} error={errors.preferredDate} onChange={setField} />
+            <Field label="ວັນທີ່ຕ້ອງການຮັບ" name="preferredDate" type="date" half value={form.preferredDate} error={errors.preferredDate} onChange={setField} />
             <Field label="ໝາຍເຫດ" name="notes" type="textarea" placeholder="ຄຳຮ້ອງຂໍພິເສດ..." value={form.notes} error={errors.notes} onChange={setField} />
+
+            {/* Logistics */}
+            <div className="w-full">
+              <label className={`label-field ${errors.logistics ? '!text-red-500' : ''}`}>
+                ບໍລິສັດຂົນສົ່ງ *
+              </label>
+              <div className="flex gap-3">
+                {LOGISTICS_OPTIONS.map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setField('logistics', opt)}
+                    className={`flex-1 rounded-xl border-2 py-3 text-sm font-semibold transition-colors ${
+                      form.logistics === opt
+                        ? 'border-brand-800 bg-brand-50 text-brand-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    } ${errors.logistics ? '!border-red-300' : ''}`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              {errors.logistics && <p className="mt-1 text-[11px] text-red-500">{errors.logistics}</p>}
+            </div>
           </div>
 
           {/* WhatsApp Button */}

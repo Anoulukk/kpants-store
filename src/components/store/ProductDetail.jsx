@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 
 export default function ProductDetail({ product, onClose, onAdd, config }) {
   const [imgIdx, setImgIdx] = useState(0)
+  const [imgLoaded, setImgLoaded] = useState(false)
   const [size, setSize] = useState(null)
+
+  useEffect(() => { setImgLoaded(false) }, [imgIdx])
   const [color, setColor] = useState(product.colors[0])
   const [sizeError, setSizeError] = useState(false)
 
@@ -33,7 +36,18 @@ export default function ProductDetail({ product, onClose, onAdd, config }) {
 
         {/* Images */}
         <div className="relative min-h-[400px] flex-[1_1_380px] bg-brand-100">
-          <img src={product.images[imgIdx]} alt="" className="h-full w-full object-cover" style={{ minHeight: 400 }} />
+          {!imgLoaded && (
+            <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-brand-100 to-brand-200" />
+          )}
+          <img
+            src={product.images[imgIdx]}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setImgLoaded(true)}
+            className={`h-full w-full object-cover transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+            style={{ minHeight: 400 }}
+          />
           {product.images.length > 1 && (
             <>
               <button
@@ -59,7 +73,7 @@ export default function ProductDetail({ product, onClose, onAdd, config }) {
                   i === imgIdx ? 'border-brand-900 opacity-100' : 'border-transparent opacity-60'
                 }`}
               >
-                <img src={img} alt="" className="h-full w-full object-cover" />
+                <img src={img} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </div>
             ))}
           </div>

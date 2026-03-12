@@ -48,7 +48,7 @@ function StorePage({ storeData }) {
       />
 
       {/* Hero */}
-      <section className="mx-auto max-w-7xl px-6 pb-10 pt-16 text-center">
+      <section className="mx-auto max-w-7xl px-6 pb-10 pt-5 text-center">
         <p className="text-[11px] font-medium tracking-[4px] text-gray-400">{config.tagline}</p>
         <h2 className="mt-3 font-display text-[clamp(32px,6vw,56px)] leading-none text-brand-900">
           {config.heroTitle} <em className="italic">{config.heroTitleItalic}</em>

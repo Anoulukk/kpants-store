@@ -16,6 +16,10 @@ ALTER TABLE config ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all" ON config;
 CREATE POLICY "anon_all" ON config FOR ALL TO anon USING (true) WITH CHECK (true);
 
+-- Customers: add new columns if not exists
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS logistics text NOT NULL DEFAULT '';
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS village text NOT NULL DEFAULT '';
+
 -- Customers
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "anon_all" ON customers;

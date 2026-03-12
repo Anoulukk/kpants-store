@@ -10,12 +10,13 @@ export function buildWhatsAppMessage(cart, customer, config) {
     '👤 *ຂໍ້ມູນລູກຄ້າ*',
     `ຊື່: ${customer.name}`,
     `ເບີໂທ: ${customer.phone}`,
-    `ທີ່ຢູ່: ${customer.address}`,
-    `ເມືອງ: ${customer.city}`,
     `ແຂວງ: ${customer.province}`,
+    `ເມືອງ: ${customer.city}`,
+    `ບ້ານ: ${customer.village}`,
   ]
 
   if (customer.landmark) lines.push(`ຈຸດສັງເກດ: ${customer.landmark}`)
+  if (customer.logistics) lines.push(`🚚 ຂົນສົ່ງ: ${customer.logistics}`)
 
   lines.push('', '📦 *ລາຍການສິນຄ້າ*')
 

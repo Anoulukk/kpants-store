@@ -178,11 +178,11 @@ export const customerApi = {
     return {
       name: data.name,
       phone: data.phone,
-      address: data.address,
+      village: data.village || '',
       city: data.city,
       province: data.province,
-      // postalCode: data.postal_code,
       landmark: data.landmark,
+      logistics: data.logistics || '',
     }
   },
   save: async (data) => {
@@ -190,11 +190,11 @@ export const customerApi = {
     const payload = {
       name: data.name,
       phone: data.phone,
-      address: data.address || '',
+      village: data.village || '',
       city: data.city || '',
       province: data.province || '',
-      // postal_code: data.postalCode || '',
       landmark: data.landmark || '',
+      logistics: data.logistics || '',
     }
     const { error } = await sb.from('customers').upsert(payload, { onConflict: 'phone' })
     if (error) throw error

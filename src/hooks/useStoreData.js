@@ -1,127 +1,124 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productApi, categoryApi, configApi } from '@/lib/api'
 import { DEFAULT_CONFIG, DEFAULT_CATEGORIES, DEFAULT_PRODUCTS } from '@/data/constants'
 
 export function useStoreData() {
-  const [config, setConfig] = useState(DEFAULT_CONFIG)
-  const [products, setProducts] = useState(DEFAULT_PRODUCTS)
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const qc = useQueryClient()
 
-  // ── Load all data on mount ──────────────────────────────
-  useEffect(() => {
-    async function loadAll() {
-      try {
-        const [cfgRes, prodRes, catRes] = await Promise.all([
-          configApi.get(),
-          productApi.getAll(),
-          categoryApi.getAll(),
-        ])
-        setConfig(prev => ({ ...prev, ...cfgRes }))
-        if (prodRes.length > 0) setProducts(prodRes)
-        if (catRes.length > 0) setCategories(catRes)
-      } catch (err) {
-        console.warn('API ບໍ່ພ້ອມ, ໃຊ້ຄ່າເລີ່ມຕ້ນ:', err.message)
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadAll()
-  }, [])
+  // ── Queries ──────────────────────────────────────────────
+  const { data: config = DEFAULT_CONFIG, isLoading: configLoading } = useQuery({
+    queryKey: ['config'],
+    queryFn: configApi.get,
+    select: (data) => ({ ...DEFAULT_CONFIG, ...data }),
+  })
 
-  // ── Config actions ──────────────────────────────────────
-  const updateConfig = useCallback(async (newConfig) => {
-    setConfig(newConfig)
-    try { await configApi.update(newConfig) } catch (e) { console.error(e) }
-  }, [])
+  const { data: products = DEFAULT_PRODUCTS, isLoading: productsLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: productApi.getAll,
+    select: (data) => data.length > 0 ? data : DEFAULT_PRODUCTS,
+  })
 
-  const resetAll = useCallback(async () => {
-    setLoading(true)
-    try {
+  const { data: categories = DEFAULT_CATEGORIES, isLoading: categoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: categoryApi.getAll,
+    select: (data) => data.length > 0 ? data : DEFAULT_CATEGORIES,
+  })
+
+  const loading = configLoading || productsLoading || categoriesLoading
+
+  // ── Config mutations ─────────────────────────────────────
+  const updateConfigMut = useMutation({
+    mutationFn: configApi.update,
+    onMutate: (newConfig) => {
+      qc.setQueryData(['config'], (prev) => ({ ...prev, ...newConfig }))
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['config'] }),
+  })
+
+  const resetAllMut = useMutation({
+    mutationFn: async () => {
       await configApi.reset()
       await categoryApi.replaceAll(DEFAULT_CATEGORIES)
       await productApi.replaceAll(DEFAULT_PRODUCTS)
-      const [cfgRes, prodRes, catRes] = await Promise.all([
-        configApi.get(),
-        productApi.getAll(),
-        categoryApi.getAll(),
-      ])
-      setConfig(prev => ({ ...DEFAULT_CONFIG, ...prev, ...cfgRes }))
-      setProducts(prodRes.length > 0 ? prodRes : DEFAULT_PRODUCTS)
-      setCategories(catRes.length > 0 ? catRes : DEFAULT_CATEGORIES)
-    } catch (e) {
-      console.error(e)
-      setConfig(DEFAULT_CONFIG)
-      setProducts(DEFAULT_PRODUCTS)
-      setCategories(DEFAULT_CATEGORIES)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['config'] })
+      qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['categories'] })
+    },
+  })
 
-  // ── Product actions ─────────────────────────────────────
-  const addProduct = useCallback(async (data) => {
-    try {
-      const product = await productApi.create(data)
-      setProducts(prev => [...prev, product])
-      return product
-    } catch (e) {
-      console.error(e)
-      return null
-    }
-  }, [])
+  // ── Product mutations ────────────────────────────────────
+  const addProductMut = useMutation({
+    mutationFn: productApi.create,
+    onSuccess: (product) => {
+      qc.setQueryData(['products'], (prev) => [...(prev || []), product])
+    },
+  })
 
-  const updateProduct = useCallback(async (id, data) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...data, id } : p))
-    try { await productApi.update(id, data) } catch (e) { console.error(e) }
-  }, [])
+  const updateProductMut = useMutation({
+    mutationFn: ({ id, data }) => productApi.update(id, data),
+    onMutate: ({ id, data }) => {
+      qc.setQueryData(['products'], (prev) => prev?.map(p => p.id === id ? { ...data, id } : p))
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  })
 
-  const deleteProduct = useCallback(async (id) => {
-    setProducts(prev => prev.filter(p => p.id !== id))
-    try { await productApi.delete(id) } catch (e) { console.error(e) }
-  }, [])
+  const deleteProductMut = useMutation({
+    mutationFn: productApi.delete,
+    onMutate: (id) => {
+      qc.setQueryData(['products'], (prev) => prev?.filter(p => p.id !== id))
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  })
 
-  const duplicateProduct = useCallback(async (product) => {
-    const dupData = { ...product, name: product.name + ' (ສຳເນົາ)' }
-    try {
-      const dup = await productApi.create(dupData)
-      setProducts(prev => [...prev, dup])
-      return dup
-    } catch (e) {
-      console.error(e)
-      return null
-    }
-  }, [])
+  const duplicateProductMut = useMutation({
+    mutationFn: (product) => productApi.create({ ...product, name: product.name + ' (ສຳເນົາ)' }),
+    onSuccess: (dup) => {
+      qc.setQueryData(['products'], (prev) => [...(prev || []), dup])
+    },
+  })
 
-  // ── Category actions ─────────────────────────────────────
-  const addCategory = useCallback(async (data) => {
-    if (categories.find(c => c.id === data.id)) return null
-    try {
-      const cat = await categoryApi.create(data)
-      setCategories(prev => [...prev, cat])
-      return cat
-    } catch (e) {
-      console.error(e)
-      return null
-    }
-  }, [categories])
+  // ── Category mutations ───────────────────────────────────
+  const addCategoryMut = useMutation({
+    mutationFn: categoryApi.create,
+    onSuccess: (cat) => {
+      qc.setQueryData(['categories'], (prev) => [...(prev || []), cat])
+    },
+  })
 
-  const updateCategory = useCallback(async (id, label) => {
-    setCategories(prev => prev.map(c => c.id === id ? { ...c, label } : c))
-    try { await categoryApi.update(id, { label }) } catch (e) { console.error(e) }
-  }, [])
+  const updateCategoryMut = useMutation({
+    mutationFn: ({ id, label }) => categoryApi.update(id, { label }),
+    onMutate: ({ id, label }) => {
+      qc.setQueryData(['categories'], (prev) => prev?.map(c => c.id === id ? { ...c, label } : c))
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+  })
 
-  const deleteCategory = useCallback(async (id) => {
-    setCategories(prev => prev.filter(c => c.id !== id))
-    try { await categoryApi.delete(id) } catch (e) { console.error(e) }
-  }, [])
+  const deleteCategoryMut = useMutation({
+    mutationFn: categoryApi.delete,
+    onMutate: (id) => {
+      qc.setQueryData(['categories'], (prev) => prev?.filter(c => c.id !== id))
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+  })
 
   return {
-    config, products, categories, loading, error,
-    updateConfig, resetAll,
-    addProduct, updateProduct, deleteProduct, duplicateProduct,
-    addCategory, updateCategory, deleteCategory,
+    config, products, categories, loading, error: null,
+
+    updateConfig: (newConfig) => updateConfigMut.mutate(newConfig),
+    resetAll: () => resetAllMut.mutateAsync(),
+
+    addProduct: (data) => addProductMut.mutateAsync(data),
+    updateProduct: (id, data) => updateProductMut.mutate({ id, data }),
+    deleteProduct: (id) => deleteProductMut.mutate(id),
+    duplicateProduct: (product) => duplicateProductMut.mutateAsync(product),
+
+    addCategory: (data) => {
+      if (categories.find(c => c.id === data.id)) return Promise.resolve(null)
+      return addCategoryMut.mutateAsync(data)
+    },
+    updateCategory: (id, label) => updateCategoryMut.mutate({ id, label }),
+    deleteCategory: (id) => deleteCategoryMut.mutate(id),
   }
 }
