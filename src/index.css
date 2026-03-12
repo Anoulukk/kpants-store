@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-lao antialiased;
+    margin: 0;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    @apply outline-none ring-2 ring-brand-900/20;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 bg-brand-900 text-white font-semibold rounded-xl
+           hover:bg-brand-800 transition-colors duration-200
+           flex items-center justify-center gap-2;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 border border-gray-200 rounded-xl text-gray-500
+           hover:border-gray-400 hover:text-gray-700 transition-all duration-200;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-red-500 text-white font-semibold rounded-xl
+           hover:bg-red-600 transition-colors duration-200;
+  }
+
+  .btn-accent {
+    @apply px-6 py-3 bg-gradient-to-r from-admin-accent to-admin-accent-dim
+           text-white font-semibold rounded-xl transition-opacity duration-200
+           hover:opacity-90 flex items-center justify-center gap-2;
+  }
+
+  .input-field {
+    @apply w-full px-3.5 py-3 rounded-xl border border-gray-200 bg-gray-50/50
+           text-sm font-lao placeholder:text-gray-400
+           focus:border-brand-900 focus:bg-white transition-colors duration-200;
+  }
+
+  .input-admin {
+    @apply w-full px-3.5 py-3 rounded-xl border border-admin-border bg-admin-bg
+           text-sm text-admin-text font-lao placeholder:text-admin-dim
+           focus:border-admin-accent transition-colors duration-200;
+  }
+
+  .label-field {
+    @apply block text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5;
+  }
+
+  .label-admin {
+    @apply block text-[11px] font-semibold uppercase tracking-wider text-admin-dim mb-2;
+  }
+
+  .card-admin {
+    @apply bg-admin-surface rounded-2xl border border-admin-border p-6;
+  }
+}
