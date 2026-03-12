@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, X, ShoppingBag } from 'lucide-react'
+import { Search, X, ShoppingBag, Shield } from 'lucide-react'
 
-export default function Header({ config, cartCount, onCartOpen, search, setSearch }) {
+export default function Header({ config, cartCount, onCartOpen, onAdminOpen, search, setSearch }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef(null)
 
@@ -22,6 +22,15 @@ export default function Header({ config, cartCount, onCartOpen, search, setSearc
             }`}
           >
             {searchOpen ? <X size={18} /> : <Search size={20} />}
+          </button>
+
+          <button
+            onClick={onAdminOpen}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-brand-900 hover:bg-gray-100"
+            aria-label="Open admin panel"
+            title="Admin panel"
+          >
+            <Shield size={20} />
           </button>
 
           <button

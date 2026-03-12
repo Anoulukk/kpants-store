@@ -60,6 +60,7 @@ export default function App() {
       <Header
         config={config} cartCount={cartCount}
         onCartOpen={() => setCartOpen(true)}
+        onAdminOpen={() => goTo('admin')}
         search={search} setSearch={setSearch}
       />
 
