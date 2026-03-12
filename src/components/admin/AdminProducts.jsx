@@ -6,11 +6,21 @@ import ProductForm from './ProductForm'
 export default function AdminProducts({ products, categories, config, onAdd, onUpdate, onDelete, onDuplicate }) {
   const [editing, setEditing] = useState(null) // null | 'new' | product
   const [deleteId, setDeleteId] = useState(null)
+  const [saveError, setSaveError] = useState(null)
 
   const handleSave = async (data) => {
-    if (editing === 'new') await onAdd(data)
-    else await onUpdate(editing.id, data)
-    setEditing(null)
+    setSaveError(null)
+    try {
+      if (editing === 'new') {
+        const result = await onAdd(data)
+        if (!result) throw new Error('ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ — ກວດສອບການຕັ້ງຄ່າ Supabase')
+      } else {
+        await onUpdate(editing.id, data)
+      }
+      setEditing(null)
+    } catch (e) {
+      setSaveError(e.message)
+    }
   }
 
   if (editing) {
@@ -19,7 +29,8 @@ export default function AdminProducts({ products, categories, config, onAdd, onU
         product={editing === 'new' ? null : editing}
         categories={categories}
         onSave={handleSave}
-        onCancel={() => setEditing(null)}
+        onCancel={() => { setEditing(null); setSaveError(null) }}
+        error={saveError}
       />
     )
   }

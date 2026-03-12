@@ -12,7 +12,7 @@ const Field = ({ label, value, onChange, type = 'text', placeholder, half, texta
   </div>
 )
 
-export default function ProductForm({ product, categories, onSave, onCancel }) {
+export default function ProductForm({ product, categories, onSave, onCancel, error }) {
   const isEdit = !!product
   const [f, setF] = useState(() => {
     if (product) return {
@@ -76,7 +76,11 @@ export default function ProductForm({ product, categories, onSave, onCancel }) {
         <Field label="ລາຍລະອຽດ" value={f.description} onChange={v => set('description', v)} textarea placeholder="ອະທິບາຍສິນຄ້າ..." />
       </div>
 
-      <div className="mt-6 flex justify-end gap-3">
+      {error && (
+        <p className="mt-4 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-400">{error}</p>
+      )}
+
+      <div className="mt-4 flex justify-end gap-3">
         <button onClick={onCancel} className="btn-ghost border-admin-border text-admin-dim">ຍົກເລີກ</button>
         <button onClick={save} className="btn-accent">{isEdit ? 'ບັນທຶກ' : 'ເພີ່ມສິນຄ້າ'}</button>
       </div>

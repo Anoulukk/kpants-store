@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { useStoreData } from '@/hooks/useStoreData'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/hooks/useToast'
@@ -13,13 +14,12 @@ import OrderSuccess from '@/components/checkout/OrderSuccess'
 import AdminPanel from '@/components/admin/AdminPanel'
 import Toast from '@/components/ui/Toast'
 
-export default function App() {
-  const storeData = useStoreData()
+function StorePage({ storeData }) {
+  const navigate = useNavigate()
   const { config, products, categories } = storeData
   const { cart, cartOpen, setCartOpen, addToCart, updateQuantity, removeItem, clearCart, cartCount } = useCart()
   const { toast, showToast } = useToast()
 
-  const [view, setView] = useState(() => (window.location.pathname === '/admin' ? 'admin' : 'store'))
   const [activeCat, setActiveCat] = useState('all')
   const [search, setSearch] = useState('')
   const [selProduct, setSelProduct] = useState(null)
@@ -38,29 +38,12 @@ export default function App() {
     showToast(`${product.name} ເພີ່ມໃສ່ກະຕ່າແລ້ວ`)
   }
 
-  useEffect(() => {
-    const onPopState = () => setView(window.location.pathname === '/admin' ? 'admin' : 'store')
-    window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
-  }, [])
-
-  const goTo = (next) => {
-    setView(next)
-    const path = next === 'admin' ? '/admin' : '/'
-    if (window.location.pathname !== path) window.history.pushState({}, '', path)
-  }
-
-  if (view === 'admin') {
-    return <AdminPanel storeData={storeData} onBack={() => goTo('store')} />
-  }
-
-  // ── Store View ────────────────────────────────────────
   return (
     <div className="min-h-screen bg-brand-50 font-lao">
       <Header
         config={config} cartCount={cartCount}
         onCartOpen={() => setCartOpen(true)}
-        onAdminOpen={() => goTo('admin')}
+        onAdminOpen={() => navigate('/admin')}
         search={search} setSearch={setSearch}
       />
 
@@ -118,7 +101,6 @@ export default function App() {
         <p className="mt-3 text-xs text-gray-300">© 2026 {config.name}</p>
       </footer>
 
-      {/* Modals & Drawers */}
       {selProduct && (
         <ProductDetail product={selProduct} onClose={() => setSelProduct(null)} onAdd={handleAddToCart} config={config} />
       )}
@@ -145,4 +127,13 @@ export default function App() {
   )
 }
 
+export default function App() {
+  const storeData = useStoreData()
 
+  return (
+    <Routes>
+      <Route path="/" element={<StorePage storeData={storeData} />} />
+      <Route path="/admin" element={<AdminPanel storeData={storeData} />} />
+    </Routes>
+  )
+}
