@@ -167,3 +167,13 @@ for all using (true) with check (true);
 - **Admin password**: `admin12345678` (????????? ???????)
 - **WhatsApp**: ????????? ??????? > ??????
 - **Data**: ?????????????? Supabase (Postgres)
+
+## QR payment (PhaJay / BCEL One)
+
+Checkout can show a BCEL One QR and confirm the payment automatically. It is off until you set it up:
+
+1. Run `supabase-orders.sql` in the Supabase SQL Editor (creates the `shop_orders` table).
+2. In Vercel > Settings > Environment Variables, add `SUPABASE_SERVICE_ROLE_KEY`, `PHAJAY_SECRET_KEY` and `VITE_QR_PAYMENT=true` (see `.env.example`), then redeploy.
+3. In the PhaJay portal > Settings > Webhook, set the endpoint to `https://<your-domain>/api/payments/webhook`.
+
+The server code is in `api/payments/`. Orders and their payment status are stored in `shop_orders`.

@@ -1,7 +1,22 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+
+const STORAGE_KEY = 'kpants_cart'
+
+function loadCart() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
+    return Array.isArray(saved) ? saved.filter(i => i && i.id != null && i.quantity > 0) : []
+  } catch {
+    return []
+  }
+}
 
 export function useCart() {
-  const [cart, setCart] = useState([])
+  const [cart, setCart] = useState(loadCart)
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cart)) } catch { /* storage unavailable */ }
+  }, [cart])
   const [cartOpen, setCartOpen] = useState(false)
 
   const addToCart = useCallback((product, selectedSize, selectedColor) => {

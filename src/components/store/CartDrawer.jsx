@@ -1,5 +1,6 @@
 import { X, Minus, Plus, Trash2, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import StoreImage from '@/components/ui/StoreImage'
 
 export default function CartDrawer({ open, onClose, cart, updateQuantity, removeItem, onCheckout, config }) {
   const subtotal = cart.reduce((s, i) => s + (i.salePrice || i.price) * i.quantity, 0)
@@ -22,7 +23,7 @@ export default function CartDrawer({ open, onClose, cart, updateQuantity, remove
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
           <h2 className="text-xl font-semibold">ກະຕ່າ ({itemCount})</h2>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700">
+          <button onClick={onClose} aria-label="ປິດກະຕ່າ" className="p-1 text-gray-400 hover:text-gray-700">
             <X size={20} />
           </button>
         </div>
@@ -39,7 +40,7 @@ export default function CartDrawer({ open, onClose, cart, updateQuantity, remove
               {cart.map((item, idx) => (
                 <div key={idx} className="flex gap-3.5 border-b border-gray-50 pb-4 last:border-0">
                   <div className="h-[90px] w-[72px] flex-shrink-0 overflow-hidden rounded-xl bg-brand-100">
-                    <img src={item.images[0]} alt="" className="h-full w-full object-cover" />
+                    <StoreImage src={item.images[0]} alt={item.name} className="h-full w-full object-cover" />
                   </div>
                   <div className="flex-1">
                     <h4 className="text-sm font-medium text-brand-900">{item.name}</h4>

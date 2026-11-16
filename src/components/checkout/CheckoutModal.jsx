@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, ChevronDown } from 'lucide-react'
+import { X, ChevronDown, QrCode } from 'lucide-react'
 import { getProvinces, getDistrictsByProvinceId, getVillagesByDistrictId } from '@anouluk/laos-address-typescript'
 import { formatPrice, buildWhatsAppMessage } from '@/lib/utils'
 import { customerApi } from '@/lib/api'
+import { QR_PAYMENT_ENABLED, createPayment, savePendingPayment, loadPendingPayment, clearPendingPayment } from '@/lib/payment'
+import WhatsAppIcon from '@/components/ui/WhatsAppIcon'
+import PaymentStep from './PaymentStep'
 
 const EMPTY_FORM = { name: '', phone: '', village: '', city: '', province: '', landmark: '', preferredDate: '', notes: '', logistics: '' }
 const LOGISTICS_OPTIONS = ['ອານຸສິດ', 'ຮຸ່ງອາລຸນ']
@@ -99,7 +102,18 @@ const SearchableSelect = ({ label, required, value, error, options, placeholder,
   )
 }
 
-export default function CheckoutModal({ cart, onClose, onSuccess, config }) {
+const PAY_ERRORS = {
+  product_not_found: 'ມີສິນຄ້າໃນກະຕ່າທີ່ບໍ່ມີຂາຍແລ້ວ. ກະລຸນາກວດກະຕ່າຄືນ.',
+  invalid_size: 'ຂະໜາດທີ່ເລືອກບໍ່ມີແລ້ວ. ກະລຸນາເລືອກໃໝ່.',
+  invalid_color: 'ສີທີ່ເລືອກບໍ່ມີແລ້ວ. ກະລຸນາເລືອກໃໝ່.',
+}
+const PAY_ERROR_DEFAULT = 'ສ້າງ QR ບໍ່ໄດ້ໃນຕອນນີ້. ລອງໃໝ່ ຫຼື ສັ່ງຜ່ານ WhatsApp.'
+
+export default function CheckoutModal({ cart, onClose, onSuccess, onPaid, config }) {
+  // { payment, cart, form } while a QR payment is in progress
+  const [pending, setPending] = useState(() => (QR_PAYMENT_ENABLED ? loadPendingPayment() : null))
+  const [paying, setPaying] = useState(false)
+  const [payError, setPayError] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
   const [errors, setErrors] = useState({})
   const [sending, setSending] = useState(false)
@@ -186,15 +200,47 @@ export default function CheckoutModal({ cart, onClose, onSuccess, config }) {
     return Object.keys(e).length === 0
   }
 
-  const submit = async () => {
-    if (!validate()) return
-    setSending(true)
+  const saveCustomer = async () => {
     try {
       await customerApi.save({
         name: form.name, phone: form.phone, village: form.village,
         city: form.city, province: form.province, landmark: form.landmark, logistics: form.logistics,
       })
     } catch (e) { /* ok */ }
+  }
+
+  const payWithQr = async () => {
+    if (!validate()) return
+    setPaying(true)
+    setPayError('')
+    try {
+      await saveCustomer()
+      const payment = await createPayment(cart, form)
+      const next = { payment, cart, form }
+      savePendingPayment(next)
+      setPending(next)
+    } catch (e) {
+      setPayError(PAY_ERRORS[e.code] || PAY_ERROR_DEFAULT)
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  const leavePayment = () => { clearPendingPayment(); setPending(null) }
+
+  const closeModal = () => { clearPendingPayment(); onClose() }
+
+  const sendPaidOrder = () => {
+    const msg = buildWhatsAppMessage(pending.cart, pending.form, config, { orderNo: pending.payment.orderNo, paid: true })
+    window.open(`https://wa.me/${config.whatsappNumber}?text=${msg}`, '_blank')
+    clearPendingPayment()
+    onSuccess()
+  }
+
+  const submit = async () => {
+    if (!validate()) return
+    setSending(true)
+    await saveCustomer()
     const msg = buildWhatsAppMessage(cart, form, config)
     window.open(`https://wa.me/${config.whatsappNumber}?text=${msg}`, '_blank')
     setTimeout(() => { setSending(false); onSuccess() }, 500)
@@ -206,10 +252,19 @@ export default function CheckoutModal({ cart, onClose, onSuccess, config }) {
   return (
     <div className="fixed inset-0 z-[1003] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div className="relative max-h-[90vh] w-full max-w-[560px] overflow-auto rounded-2xl bg-white" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200">
+        <button onClick={closeModal} aria-label="ປິດ" className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200">
           <X size={16} />
         </button>
 
+        {pending ? (
+          <PaymentStep
+            payment={pending.payment}
+            config={config}
+            onPaid={onPaid}
+            onSendWhatsApp={sendPaidOrder}
+            onBack={leavePayment}
+          />
+        ) : (
         <div className="p-8">
           <h2 className="text-2xl font-semibold">ສັ່ງຊື້</h2>
           <p className="mt-1 text-sm text-gray-400">ກະລຸນາຕື່ມຂໍ້ມູນ — ພວກເຮົາຈະສົ່ງອໍເດີຜ່ານ WhatsApp</p>
@@ -321,21 +376,32 @@ export default function CheckoutModal({ cart, onClose, onSuccess, config }) {
             </div>
           </div>
 
+          {/* QR payment */}
+          {QR_PAYMENT_ENABLED && (
+            <>
+              <button onClick={payWithQr} disabled={paying || sending} className="btn-primary mt-6 w-full py-4 text-base disabled:opacity-60">
+                <QrCode size={20} />
+                {paying ? 'ກຳລັງສ້າງ QR...' : `ຈ່າຍດ້ວຍ BCEL One — ${formatPrice(subtotal + deliveryFee, config.currency)}`}
+              </button>
+              {payError && <p className="mt-2 text-center text-xs text-red-500" role="alert">{payError}</p>}
+              <p className="mt-4 text-center text-[11px] text-gray-400">ຫຼື ສັ່ງກ່ອນ ແລ້ວຈ່າຍພາຍຫຼັງ</p>
+            </>
+          )}
+
           {/* WhatsApp Button */}
           <button
             onClick={submit}
-            disabled={sending}
-            className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#25D366] px-6 py-4 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            disabled={sending || paying}
+            className={`${QR_PAYMENT_ENABLED ? 'mt-2.5' : 'mt-6'} flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#25D366] px-6 py-4 text-base font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60`}
           >
-            <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-            </svg>
+            <WhatsAppIcon />
             {sending ? 'ກຳລັງເປີດ WhatsApp...' : 'ສົ່ງອໍເດີຜ່ານ WhatsApp'}
           </button>
           <p className="mt-2.5 text-center text-[11px] text-gray-400">
             ອໍເດີຂອງທ່ານຈະຖືກສົ່ງໄປ WhatsApp ເພື່ອຢືນຢັນ
           </p>
         </div>
+        )}
       </div>
     </div>
   )

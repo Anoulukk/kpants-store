@@ -1,3 +1,4 @@
+import StoreImage from '@/components/ui/StoreImage'
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, Copy } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
@@ -51,7 +52,7 @@ export default function AdminProducts({ products, categories, config, onAdd, onU
         {products.map(p => (
           <div key={p.id} className="card-admin flex flex-wrap items-center gap-4 !p-4">
             <div className="h-[70px] w-[56px] flex-shrink-0 overflow-hidden rounded-xl bg-admin-border">
-              <img src={p.images[0]} alt="" className="h-full w-full object-cover" />
+              <StoreImage src={p.images[0]} className="h-full w-full object-cover" />
             </div>
 
             <div className="min-w-[140px] flex-1">

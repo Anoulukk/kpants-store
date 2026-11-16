@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { X, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react'
-import { formatPrice } from '@/lib/utils'
+import { X, ChevronLeft, ChevronRight, ShoppingBag, Share2 } from 'lucide-react'
+import { formatPrice, productPath } from '@/lib/utils'
+import StoreImage from '@/components/ui/StoreImage'
 
-export default function ProductDetail({ product, onClose, onAdd, config }) {
+export default function ProductDetail({ product, onClose, onAdd, onShared, config }) {
   const [imgIdx, setImgIdx] = useState(0)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [size, setSize] = useState(null)
@@ -10,6 +11,18 @@ export default function ProductDetail({ product, onClose, onAdd, config }) {
   useEffect(() => { setImgLoaded(false) }, [imgIdx])
   const [color, setColor] = useState(product.colors[0])
   const [sizeError, setSizeError] = useState(false)
+
+  const handleShare = async () => {
+    const url = window.location.origin + productPath(product)
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: product.name, url })
+      } else {
+        await navigator.clipboard.writeText(url)
+        onShared?.()
+      }
+    } catch { /* user cancelled the share sheet */ }
+  }
 
   const handleAdd = () => {
     if (!size) { setSizeError(true); return }
@@ -29,6 +42,7 @@ export default function ProductDetail({ product, onClose, onAdd, config }) {
         {/* Close */}
         <button
           onClick={onClose}
+          aria-label="ປິດ"
           className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white"
         >
           <X size={18} />
@@ -39,11 +53,10 @@ export default function ProductDetail({ product, onClose, onAdd, config }) {
           {!imgLoaded && (
             <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-brand-100 to-brand-200" />
           )}
-          <img
+          <StoreImage
             src={product.images[imgIdx]}
-            alt=""
-            loading="lazy"
-            decoding="async"
+            alt={product.name}
+            loading="eager"
             onLoad={() => setImgLoaded(true)}
             className={`h-full w-full object-cover transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
             style={{ minHeight: 400 }}
@@ -52,12 +65,14 @@ export default function ProductDetail({ product, onClose, onAdd, config }) {
             <>
               <button
                 onClick={() => setImgIdx(p => (p - 1 + product.images.length) % product.images.length)}
+                aria-label="ຮູບກ່ອນໜ້າ"
                 className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 hover:bg-white"
               >
                 <ChevronLeft size={18} />
               </button>
               <button
                 onClick={() => setImgIdx(p => (p + 1) % product.images.length)}
+                aria-label="ຮູບຕໍ່ໄປ"
                 className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 hover:bg-white"
               >
                 <ChevronRight size={18} />
@@ -73,14 +88,14 @@ export default function ProductDetail({ product, onClose, onAdd, config }) {
                   i === imgIdx ? 'border-brand-900 opacity-100' : 'border-transparent opacity-60'
                 }`}
               >
-                <img src={img} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                <StoreImage src={img} className="h-full w-full object-cover" />
               </div>
             ))}
           </div>
         </div>
 
         {/* Details */}
-        <div className="flex flex-[1_1_340px] flex-col gap-5 p-10">
+        <div className="flex flex-[1_1_340px] flex-col gap-5 p-6 sm:p-10">
           <div>
             <p className="text-[11px] tracking-widest text-gray-400">{product.category}</p>
             <h2 className="mt-2 font-display text-3xl text-brand-900">{product.name}</h2>
@@ -145,6 +160,13 @@ export default function ProductDetail({ product, onClose, onAdd, config }) {
           <button onClick={handleAdd} className="btn-primary mt-2 py-4 text-base">
             <ShoppingBag size={18} />
             ເພີ່ມໃສ່ກະຕ່າ — {formatPrice(product.salePrice || product.price, config.currency)}
+          </button>
+
+          <button
+            onClick={handleShare}
+            className="flex items-center justify-center gap-2 text-xs font-medium text-gray-500 hover:text-brand-900"
+          >
+            <Share2 size={14} /> ແຊຣ໌ສິນຄ້ານີ້
           </button>
         </div>
       </div>

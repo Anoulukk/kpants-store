@@ -2,10 +2,11 @@ export function formatPrice(amount, currency = '₭') {
   return `${Number(amount).toLocaleString()} ${currency}`
 }
 
-export function buildWhatsAppMessage(cart, customer, config) {
+export function buildWhatsAppMessage(cart, customer, config, payment = null) {
   const lines = [
     `🛍️ *ອໍເດີໃໝ່ຈາກ ${config.name}*`,
     '━━━━━━━━━━━━━━',
+    ...(payment?.orderNo ? [`ເລກອໍເດີ: ${payment.orderNo}`] : []),
     '',
     '👤 *ຂໍ້ມູນລູກຄ້າ*',
     `ຊື່: ${customer.name}`,
@@ -42,6 +43,8 @@ export function buildWhatsAppMessage(cart, customer, config) {
     `*ລວມທັງໝົດ: ${formatPrice(subtotal + deliveryFee, config.currency)}*`
   )
 
+  if (payment?.paid) lines.push('✅ *ຈ່າຍແລ້ວຜ່ານ BCEL One*')
+
   if (customer.preferredDate) lines.push('', `📅 ວັນທີ່ຕ້ອງການຮັບ: ${customer.preferredDate}`)
   if (customer.notes) lines.push(`📝 ໝາຍເຫດ: ${customer.notes}`)
   lines.push('', 'ຂອບໃຈ! 🙏')
@@ -51,4 +54,16 @@ export function buildWhatsAppMessage(cart, customer, config) {
 
 export function cn(...classes) {
   return classes.filter(Boolean).join(' ')
+}
+
+// Supabase signed URLs (/object/sign/...?token=) expire. Once the bucket is
+// public, the same file is reachable forever at /object/public/... — this
+// returns that permanent URL, or null if `url` is not a signed Supabase URL.
+export function publicImageUrl(url) {
+  if (typeof url !== 'string' || !url.includes('/storage/v1/object/sign/')) return null
+  return url.replace('/storage/v1/object/sign/', '/storage/v1/object/public/').split('?')[0]
+}
+
+export function productPath(product) {
+  return `/product/${product.id}`
 }

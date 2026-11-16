@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { formatPrice } from '@/lib/utils'
 import { BADGE_COLORS } from '@/data/constants'
+import StoreImage from '@/components/ui/StoreImage'
 
 export default function ProductCard({ product, onView, config }) {
   const [imgIdx, setImgIdx] = useState(0)
@@ -33,7 +34,7 @@ export default function ProductCard({ product, onView, config }) {
     >
       {/* Image */}
       <div
-        className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-brand-100"
+        className="relative aspect-[3/4] overflow-hidden rounded-xl bg-brand-100 sm:rounded-2xl"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -41,11 +42,9 @@ export default function ProductCard({ product, onView, config }) {
         {!loaded && (
           <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-brand-100 to-brand-200" />
         )}
-        <img
+        <StoreImage
           src={product.images[imgIdx]}
           alt={product.name}
-          loading="lazy"
-          decoding="async"
           onLoad={() => setLoaded(true)}
           className={`h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
         />
@@ -71,6 +70,7 @@ export default function ProductCard({ product, onView, config }) {
                 <button
                   key={i}
                   onClick={(e) => { e.stopPropagation(); setImgIdx(i) }}
+                  aria-label={`ຮູບທີ ${i + 1}`}
                   className={`h-1.5 w-1.5 rounded-full transition-colors ${i === imgIdx ? 'bg-white' : 'bg-white/50'}`}
                 />
               ))}
@@ -80,12 +80,12 @@ export default function ProductCard({ product, onView, config }) {
       </div>
 
       {/* Info */}
-      <div className="px-1 pt-3.5">
+      <div className="px-0.5 pt-2.5 sm:px-1 sm:pt-3.5">
         <p className="text-[11px] tracking-wider text-gray-400">{product.category}</p>
-        <h3 className="mt-1.5 text-[15px] font-medium leading-snug text-brand-900">
+        <h3 className="mt-1 text-[13px] font-medium sm:mt-1.5 sm:text-[15px] leading-snug text-brand-900">
           {product.name}
         </h3>
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2">
           <span className={`text-sm font-semibold ${product.salePrice ? 'text-red-700' : 'text-brand-900'}`}>
             {formatPrice(price, config.currency)}
           </span>

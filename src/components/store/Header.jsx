@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, X, ShoppingBag, Shield } from 'lucide-react'
+import { Search, X, ShoppingBag } from 'lucide-react'
 
-export default function Header({ config, cartCount, onCartOpen, onAdminOpen, search, setSearch }) {
+export default function Header({ config, loading, cartCount, onCartOpen, search, setSearch }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef(null)
 
@@ -12,11 +12,14 @@ export default function Header({ config, cartCount, onCartOpen, onAdminOpen, sea
   return (
     <header className="sticky top-0 z-50 border-b border-black/5 bg-brand-50/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <h1 className="font-display text-2xl tracking-[3px] text-brand-900">{config.name}</h1>
+        {loading
+          ? <div className="h-7 w-32 animate-pulse rounded bg-brand-200" />
+          : <h1 className="font-display text-2xl tracking-[3px] text-brand-900">{config.name}</h1>}
 
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearch('') }}
+            aria-label={searchOpen ? 'ປິດການຄົ້ນຫາ' : 'ຄົ້ນຫາສິນຄ້າ'}
             className={`flex h-10 w-10 items-center justify-center rounded-full transition-all ${
               searchOpen ? 'bg-brand-900 text-white' : 'text-brand-900 hover:bg-gray-100'
             }`}
@@ -25,16 +28,8 @@ export default function Header({ config, cartCount, onCartOpen, onAdminOpen, sea
           </button>
 
           <button
-            onClick={onAdminOpen}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-brand-900 hover:bg-gray-100"
-            aria-label="Open admin panel"
-            title="Admin panel"
-          >
-            <Shield size={20} />
-          </button>
-
-          <button
             onClick={onCartOpen}
+            aria-label="ເປີດກະຕ່າ"
             className="relative flex h-10 w-10 items-center justify-center rounded-full text-brand-900 hover:bg-gray-100"
           >
             <ShoppingBag size={20} />
